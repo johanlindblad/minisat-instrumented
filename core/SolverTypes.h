@@ -25,6 +25,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define Minisat_SolverTypes_h
 
 #include <assert.h>
+#include <iostream>
 
 #include "mtl/IntTypes.h"
 #include "mtl/Alg.h"
@@ -54,6 +55,8 @@ struct Lit {
     bool operator == (Lit p) const { return x == p.x; }
     bool operator != (Lit p) const { return x != p.x; }
     bool operator <  (Lit p) const { return x < p.x;  } // '<' makes p, ~p adjacent in the ordering.
+
+    friend std::ostream& operator<<(std::ostream& os, const Lit& p);
 };
 
 
@@ -64,9 +67,19 @@ inline  bool sign      (Lit p)              { return p.x & 1; }
 inline  int  var       (Lit p)              { return p.x >> 1; }
 
 // Mapping Literals to and from compact integers suitable for array indexing:
-inline  int  toInt     (Var v)              { return v; } 
-inline  int  toInt     (Lit p)              { return p.x; } 
-inline  Lit  toLit     (int i)              { Lit p; p.x = i; return p; } 
+inline  int  toInt     (Var v)              { return v; }
+inline  int  toInt     (Lit p)              { return p.x; }
+inline  Lit  toLit     (int i)              { Lit p; p.x = i; return p; }
+
+inline std::ostream& operator<<(std::ostream& os, const Lit& p)
+{
+    if(sign(p) == 1) {
+        os << "~" << var(p);
+    } else {
+        os << " " << var(p);
+    }
+    return os;
+}
 
 //const Lit lit_Undef = mkLit(var_Undef, false);  // }- Useful special constants.
 //const Lit lit_Error = mkLit(var_Undef, true );  // }
@@ -79,7 +92,7 @@ const Lit lit_Error = { -1 };  // }
 // Lifted booleans:
 //
 // NOTE: this implementation is optimized for the case when comparisons between values are mostly
-//       between one variable and one constant. Some care had to be taken to make sure that gcc 
+//       between one variable and one constant. Some care had to be taken to make sure that gcc
 //       does enough constant propagation to produce sensible code, and this appears to be somewhat
 //       fragile unfortunately.
 
@@ -100,7 +113,7 @@ public:
     bool  operator != (lbool b) const { return !(*this == b); }
     lbool operator ^  (bool  b) const { return lbool((uint8_t)(value^(uint8_t)b)); }
 
-    lbool operator && (lbool b) const { 
+    lbool operator && (lbool b) const {
         uint8_t sel = (this->value << 1) | (b.value << 3);
         uint8_t v   = (0xF7F755F4 >> sel) & 3;
         return lbool(v); }
@@ -127,13 +140,13 @@ class Clause {
         unsigned long mark      : 2;
         unsigned long learnt    : 1;
         unsigned long has_extra : 1;
-        unsigned long reloced   : 1;  
+        unsigned long reloced   : 1;
 	unsigned lbd       : 26;
 	unsigned removable : 1;
         unsigned dpll_clause: 1;
         unsigned seen_in_analysis: 1;
-	unsigned size      : 30; 	
-	//long sat_lit   : 16; 
+	unsigned size      : 30;
+	//long sat_lit   : 16;
 	//unsigned long counter   : 16;
         }                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
@@ -155,14 +168,14 @@ class Clause {
         header.removable = 1;
         header.dpll_clause = 0;
         header.seen_in_analysis = 0;
-  
-        for (int i = 0; i < ps.size(); i++) 
+
+        for (int i = 0; i < ps.size(); i++)
             data[i].lit = ps[i];
 
         if (header.has_extra){
             if (header.learnt)
-                data[header.size].act = 0; 
-            else 
+                data[header.size].act = 0;
+            else
                 calcAbstraction(); }
     }
 
@@ -193,7 +206,7 @@ public:
     bool         reloced     ()      const   { return header.reloced; }
     CRef         relocation  ()      const   { return data[0].rel; }
     void         relocate    (CRef c)        { header.reloced = 1; data[0].rel = c; }
-    
+
     bool         is_dpll     ()      const   {return header.dpll_clause;}
     void         set_dpll    (bool v = true)   { header.dpll_clause = v; }
 
@@ -216,8 +229,19 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
+
+    friend std::ostream& operator<<(std::ostream& os, const Clause& c);
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Clause& c) {
+    std::cout << c.size() << " ";
+
+    for (int j = 0; j < c.size(); j++) {
+        os << c[j] << " ";
+    }
+
+    return os;
+}
 
 //=================================================================================================
 // ClauseAllocator -- a simple class for allocating memory for clauses:
@@ -266,14 +290,21 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
     void reloc(CRef& cr, ClauseAllocator& to)
     {
+        CRef before = cr;
         Clause& c = operator[](cr);
-        
+
         if (c.reloced()) { cr = c.relocation(); return; }
-        
+
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
-        
-        // Copy extra data-fields: 
+
+        // Print to the trace the fact that we reloced this clause
+        // Format will be M x y, where
+        // x = the CRef before the move
+        // y = the CRef after the move
+        if(before != cr) std::cout << "M " << before << " " << cr << std::endl;
+
+        // Copy extra data-fields:
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
         to[cr].mark(c.mark());
         /* to[cr].setCounter(c.counter()); */
@@ -299,14 +330,14 @@ class DPLLClauseAllocator {
         return (sizeof(Clause) + (sizeof(Lit) * (size + 1))) / sizeof(uint32_t); }
 public:
 
-    DPLLClauseAllocator(uint32_t start_cap) { 
+    DPLLClauseAllocator(uint32_t start_cap) {
         memory.growTo(start_cap);
         }
     DPLLClauseAllocator()  {
     }
     CRef pushClause(const vec<Lit> & ps) {
         /* printf("[Pushing Clause %d->%d (size %d)]", memory.size(), memory.size()+clauseWord32Size(ps.size()),clauseWord32Size(ps.size())) ; */
-        CRef cid = memory.size(); 
+        CRef cid = memory.size();
         memory.growTo(memory.size()+clauseWord32Size(ps.size()));
         internalSizes.push(memory.size());
         new (lea(cid)) Clause(ps, true, true);
@@ -339,7 +370,7 @@ class OccLists
 
  public:
     OccLists(const Deleted& d) : deleted(d) {}
-    
+
     void  init      (const Idx& idx){ occs.growTo(toInt(idx)+1); dirty.growTo(toInt(idx)+1, 0); }
     // Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
     Vec&  operator[](const Idx& idx){ return occs[toInt(idx)]; }
@@ -398,13 +429,13 @@ class CMap
 
     typedef Map<CRef, T, CRefHash> HashTable;
     HashTable map;
-        
+
  public:
     // Size-operations:
     void     clear       ()                           { map.clear(); }
     int      size        ()                const      { return map.elems(); }
 
-    
+
     // Insert/Remove/Test mapping:
     void     insert      (CRef cr, const T& t){ map.insert(cr, t); }
     void     growTo      (CRef cr, const T& t){ map.insert(cr, t); } // NOTE: for compatibility
@@ -431,11 +462,11 @@ class CMap
 /*_________________________________________________________________________________________________
 |
 |  subsumes : (other : const Clause&)  ->  Lit
-|  
+|
 |  Description:
 |       Checks if clause subsumes 'other', and at the same time, if it can be used to simplify 'other'
 |       by subsumption resolution.
-|  
+|
 |    Result:
 |       lit_Error  - No subsumption or simplification
 |       lit_Undef  - Clause subsumes 'other'

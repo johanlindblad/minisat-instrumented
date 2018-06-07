@@ -70,7 +70,7 @@ static DoubleOption     opt_factor_reduce_db(_cat, "factorReduceDB", "Factor for
 
 
 BoolOption          opt_binary            (_cat, "binary", "binary clause special handling", true); // make this to false for Minisat
-static BoolOption   opt_extra_var_act_bump (_cat, "extraVarBump", "Extra Bump of variable activity (like in Glucose), related to LBD.", false); // Make this to false for Minisat-like 
+static BoolOption   opt_extra_var_act_bump (_cat, "extraVarBump", "Extra Bump of variable activity (like in Glucose), related to LBD.", false); // Make this to false for Minisat-like
 
 // To make things clear, the options used in the paper are here.
 static const char* _catTheory = "THEORY PARAMETERS"; // Options to be handled by the experimentation on theoretical problems
@@ -116,7 +116,7 @@ void Solver::handleTheoryOptions() {
 	  fprintf(fileout,"c ERROR: No RE (restart) option defined!\n");
 	  exit(-1);
   }
-  
+
   // handles the CL parameter
   if (strlen(opt_CL_clauseLearning) > 0) {
     if (!strcmp(opt_CL_clauseLearning, "1uip"))
@@ -230,7 +230,7 @@ void Solver::handleTheoryOptions() {
     } else if (!strcmp(opt_CE_clauseErasure, "dpll")) {
       opt_disable_deletion=true; // no more need this now, only clauses of size 2 are kept
       opt_glucose_frequency = opt_minisat_frequency = ce_lin = false;
-      dpll = true; 
+      dpll = true;
       ccmin_mode = 0; // Force no minimization here
       opt_binary = false; // No binary clause minimization
     } else
@@ -333,13 +333,13 @@ Solver::Solver() :
      , chb_c (0)
      , chb_p (0)
 //     , chb_b (0)
-		   
+
      // LRB
-     , LRB(opt_LRB)	    
+     , LRB(opt_LRB)
      , lrb_step_size        (opt_lrb_step_size)
      , lrb_step_size_dec    (opt_lrb_step_size_dec)
      , lrb_min_step_size    (opt_lrb_min_step_size)
-				 
+
      , randomBranching(false)
      , nbReduceDB(0)
      , json(true)
@@ -500,7 +500,7 @@ bool Solver::satisfied(const Clause& c) const {
         if (value(c[i]) == l_True)
             return true;
     return false; }
-		
+
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 
@@ -540,7 +540,7 @@ void Solver::cancelUntilLRB(int level) {
         qhead = trail_lim[level];
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
-      } 
+      }
 }
 
 void Solver::cancelUntilOriginal(int level) {
@@ -607,7 +607,7 @@ Lit Solver::pickBranchLit()
           }
           next = order_heap.removeMin();
         }
-   
+
     return next == var_Undef ? lit_Undef : mkLit(next, rnd_pol ? drand(random_seed) < 0.5 : polarity[next]);
 }
 
@@ -627,7 +627,7 @@ Lit Solver::pickBranchLit()
 |      * 'out_learnt[0]' is the asserting literal at level 'out_btlevel'.
 |      * If out_learnt.size() > 1 then 'out_learnt[1]' has the greatest decision level of the
 |        rest of literals. There may be others from the same level though.
-|
+
 |________________________________________________________________________________________________@*/
 void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& out_lbd)
 {
@@ -643,6 +643,11 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         assert(confl != CRef_Undef); // (otherwise should be UIP)
 
         Clause &c = (dpll && p!=lit_Undef && tmpReason(var(p)))?dpll_ca[confl]:ca[confl];
+
+        // Prints to trace the fact that we are using this clause
+        // Format will be U x where
+        // x = current CRef of clause
+        std::cout << "U " << confl << std::endl;
 
         // Just maintains stats about the clauses seen in conflict analysis
         if (!c.is_seen_analysis()) {
@@ -676,7 +681,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
           if (seen[var(q)]) {
             statsNbMergedLiterals++;
           } else {
-            if (level(var(q)) > 0){
+            if (level(var(q)) > 0) {
               // We just bump the variable for VSIDS cases
               if (/*!opt_DLIS &&*/ !opt_fixed_order) {
                 if (CHB)
@@ -693,6 +698,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
                 pathC++;
               } else
                 out_learnt.push(q);
+            } else {
+              assert(level(var(q)) == 0);
+              // Print to the trace the fact that this literal is skipped
+              std::cout << "S" << q << std::endl;
             }
           }
         }
@@ -725,6 +734,12 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         for (i = j = 1; i < out_learnt.size(); i++)
             if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
+            else {
+                // Print to the trace the fact that we minimize away this literal
+                // Format will be MNM l, where
+                // l = the literal that will be removed
+                std::cout << "MNM " << out_learnt[i] << std::endl;
+            }
 
     }else if (ccmin_mode == 1){
         for (i = j = 1; i < out_learnt.size(); i++){
@@ -735,6 +750,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
             else{
                 Var v = var(out_learnt[i]);
                 Clause &c = (dpll && tmpReason(v))?dpll_ca[reason(v)]:ca[reason(v)];
+                // Print to the trace the fact that we minimize away this literal
+                // Format will be MNM l, where
+                // l = the literal that will be removed
+                std::cout << "MNM " << out_learnt[i] << std::endl;
                 for (int k = c.size() == 2 ? 0 : 1; k < c.size(); k++)
                     if (!seen[var(c[k])] && level(var(c[k])) > 0){
                         out_learnt[j++] = out_learnt[i];
@@ -772,7 +791,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         out_learnt[1]     = p;
         out_btlevel       = level(var(p));
     }
-	
+
 	if(LRB){
 	    seen[var(p)] = true;
 	    for(int i = out_learnt.size() - 1; i >= 0; i--) {
@@ -991,9 +1010,15 @@ CRef Solver::propagate()
 		if (value(the_other) == l_False){
 		    confl = ws_bin[k].cref;
 		    return confl;
-		}else if(value(the_other) == l_Undef)
-		    uncheckedEnqueue(the_other, ws_bin[k].cref);
+		}else if(value(the_other) == l_Undef) {
+            // Prints to the trace the fact that we propagate this literal
+            // Format will be P l x, where
+            // l = literal that is propagated
+            // x = CRef of clause it was propagated via
+            std::cout << "P " << the_other << " " << ws_bin[k].cref << std::endl;
+            uncheckedEnqueue(the_other, ws_bin[k].cref);
 	    }
+        }
 	}
 
         for (i = j = (Watcher*)ws, end = i + ws.size();  i != end;){
@@ -1032,8 +1057,14 @@ CRef Solver::propagate()
                 // Copy the remaining watches:
                 while (i < end)
                     *j++ = *i++;
-            }else
+            }else{
+                // Prints to the trace the fact that we propagate this literal
+                // Format will be P l x, where
+                // l = literal that is propagated
+                // x = CRef of clause it was propagated via
+                std::cout << "P " << first << " " << cr << std::endl;
                 uncheckedEnqueue(first, cr);
+            }
 
         NextClause:;
         }
@@ -1082,7 +1113,7 @@ void Solver::reduceDB()
     int     i, j;
 
     nbReduceDB++;
-    if ( ca_lbd || opt_glucose_frequency || ce_lin) { 
+    if ( ca_lbd || opt_glucose_frequency || ce_lin) {
 	sort(learnts, reduceDB_lt_LBD(ca));
         if ((opt_glucose_frequency || ce_lin ) && learnts.size() > 0) {
           // We have a lot of "good" clauses, it is difficult to compare them. Keep more !
@@ -1103,16 +1134,20 @@ void Solver::reduceDB()
         learnts[i] = aux;
       }
     }
-	
+
     int limit = learnts.size() / 2;
     for (i = j = 0; i < learnts.size(); i++){
       Clause& c = ca[learnts[i]];
-      if (c.size() > 2 && (c.lbd() > 2 || !ca_lbd) && (c.removable() || !ca_lbd) && !locked(c) && i < limit)
+      if (c.size() > 2 && (c.lbd() > 2 || !ca_lbd) && (c.removable() || !ca_lbd) && !locked(c) && i < limit){
         removeClause(learnts[i]);
-      else{
-		  if (ca_lbd  && !c.removable()) 
+        // Print to the trace the fact that we remove this clause
+        // Format will be R x, where
+        // x = CRef of removed clause
+        std::cout << "R " << learnts[i] << std::endl;
+      }else{
+		  if (ca_lbd  && !c.removable())
 			  limit++;
-		  c.removable(true);  
+		  c.removable(true);
         learnts[j++] = learnts[i]; }
     }
 
@@ -1126,9 +1161,13 @@ void Solver::removeSatisfied(vec<CRef>& cs)
     int i, j;
     for (i = j = 0; i < cs.size(); i++){
         Clause& c = ca[cs[i]];
-        if (satisfied(c))
+        if (satisfied(c)) {
             removeClause(cs[i]);
-        else
+            // Print to the trace the fact that we remove this clause
+            // Format will be R x, where
+            // x = CRef of removed clause
+            std::cout << "R " << learnts[i] << std::endl;
+        } else
             cs[j++] = cs[i];
     }
     cs.shrink(i - j);
@@ -1309,8 +1348,14 @@ lbool Solver::search(int nof_conflicts)
             sumDecisionLevels += decisionLevel();
             sumTrailSize += trail.size();
 
-            if (decisionLevel() == 0) return l_False;
-			
+            if (decisionLevel() == 0) {
+                // Print to the trace the fact that we have the final conflict
+                // Format will be C x, where
+                // x = CRef of the final conflict clause
+                std::cout << "C " << confl << std::endl;
+                return l_False;
+            }
+
 			if(CHB && chb_a > chb_ae){ chb_a -= chb_da;}
 
 	    if (opt_lbd_restarts) {
@@ -1348,16 +1393,28 @@ lbool Solver::search(int nof_conflicts)
 
                 if (learnt_clause.size() == 1){
                     nbUn++;
+                    // Prints to the trace the fact that we learned this unit
+                    // Format will be LU l, where
+                    // l = the literal that was learned
+                    std::cout << "LU " << learnt_clause[0] << std::endl;
+                    assert(backtrack_level == 0);
                     uncheckedEnqueue(learnt_clause[0]);
                 }else if (dpll && learnt_clause.size() > 2) { // We keep binary clauses as CDCL solver does
                   CRef cr = dpll_ca.pushClause(learnt_clause);
                   assert(dpll_ca.numClauses() <= nVars());
+                  // Prints to the trace the fact that we learned this clause
+                  // Format will be L x y a b c, where
+                  // x = the CRef of the learned clause
+                  // y = the number of literals
+                  // a, b, c = literals
+                  std::cout << "L " << cr << " " << ca[cr] << std::endl;
                   uncheckedEnqueue(learnt_clause[0], cr, true);
                 }else {
                     if (learnt_clause.size()==2) nbBin++;
                     CRef cr = ca.alloc(learnt_clause, true);
-		    if (compute_lbd)
-			ca[cr].set_lbd(lbd);
+                    if (compute_lbd)
+                        ca[cr].set_lbd(lbd);
+
                     learnts.push(cr);
                     attachClause(cr);
                     if (ca_random)
@@ -1365,8 +1422,19 @@ lbool Solver::search(int nof_conflicts)
                     else
                       claBumpActivity(ca[cr]);
 
+                    // Prints to the trace the fact that we learned this clause
+                    // Format will be L x y a b c, where
+                    // x = the CRef of the learned clause
+                    // y = the number of literals
+                    // a, b, c = literals
+                    std::cout << "L " << cr << " " << ca[cr] << std::endl;
                     uncheckedEnqueue(learnt_clause[0], cr);
                 }
+
+                // Prints to the trace the fact that we backtracked
+                // Format will be B l, where
+                // l = level that is backtracked to
+                std::cout << "B " << backtrack_level << std::endl;
             }
 
             if (!opt_fixed_order) {
@@ -1446,7 +1514,7 @@ lbool Solver::search(int nof_conflicts)
                 if(opt_glucose_frequency)
                   nbclausesbeforereduce += incReduceDB;
 				// Case of CE:lin
-                else if (ce_lin) 
+                else if (ce_lin)
                   nbclausesbeforereduce *= factorReduceDB;
               }
             }
@@ -1482,6 +1550,12 @@ lbool Solver::search(int nof_conflicts)
             newDecisionLevel();
             if (CHB) chb_p = trail.size();
             uncheckedEnqueue(next);
+
+            // Prints to the trace the fact that we made a decision
+            // Format will be D l, where
+            // l = the literal that is decided
+            std::cout << "D " << next << std::endl;
+
             if (opt_disable_learning) visited_levels.push(decisionLevel());
         }
     }
@@ -1576,6 +1650,20 @@ lbool Solver::solve_()
         fprintf(fileout,"===============================================================================\n");
     }
 
+    // Trace the number of vars
+    // Format will be NV n, where
+    // n = the number of vars
+    std::cout << "NV " << nVars() << std::endl;
+
+    // Trace all initial clauses
+    // Format is I x y a b c, where
+    // x = the CRef (which could change later)
+    // y = the number of literals
+    // a, b, c = literals
+    for(int i=0; i < clauses.size(); i++) {
+        std::cout << "I " << clauses[i] << " " << ca[clauses[i]] << std::endl;
+    }
+
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){
@@ -1586,6 +1674,8 @@ lbool Solver::solve_()
         if (!withinBudget()) break;
         if (asynch_interrupt) break;
         curr_restarts++;
+        // Print to the trace the fact that we restarted
+        std::cout << "RS" << std::endl;
     }
 
     if (json)

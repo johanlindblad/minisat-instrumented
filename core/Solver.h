@@ -187,8 +187,8 @@ public:
     uint64_t nbOriginalSeenInConflicts, nbLearntSeenInConflicts, nbRemovedSeenInConflicts;
     uint64_t nbRemovedClauses;
     uint64_t nbUIP;
-	
-	
+
+
 	const char* filenameout; // Prints the output
 	FILE* fileout;
 
@@ -200,7 +200,7 @@ protected:
       int level:31;
       bool tmpReason:1; // True if this reason must be forgotten
     };
-    static inline VarData mkVarData(CRef cr, int l, bool dpll=false){ 
+    static inline VarData mkVarData(CRef cr, int l, bool dpll=false){
       VarData d = {cr, l, dpll}; return d; }
 
 
@@ -312,7 +312,7 @@ protected:
     vec<uint64_t> chb_lconf;
     int chb_p;
 //	int chb_b;
-	
+
 	// LRB heuristic
 	bool      LRB;
 	double    lrb_step_size;
@@ -357,7 +357,7 @@ protected:
     /* CRef     BCP              ();                                                      // Propagate using the old BCP procedure (first introduced in GRASP). */
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     cancelUntilLRB      (int level);                                          // Backtrack until a certain level, scoring variables with LRB heuristic.
-    void     cancelUntilOriginal      (int level);                         
+    void     cancelUntilOriginal      (int level);
 
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& out_lbd);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
@@ -498,8 +498,8 @@ inline bool     Solver::locked          (const Clause& c) const {
     int i = c.size() != 2 ? 0 : (value(c[0]) == l_True ? 0 : 1);
     return value(c[i]) == l_True && reason(var(c[i])) != CRef_Undef && ca.lea(reason(var(c[i]))) == &c;
 }
-inline void     Solver::newDecisionLevel()                      { 
-  trail_lim.push(trail.size()); 
+inline void     Solver::newDecisionLevel()                      {
+  trail_lim.push(trail.size());
   if (dpll) dpll_ca_size_for_level.push(dpll_ca.internalSize());
 }
 
