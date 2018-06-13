@@ -33,6 +33,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
 
+#define REFUTATION_TRACING true
+
 namespace Minisat {
 
 //=================================================================================================
@@ -302,7 +304,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         // Format will be M x y, where
         // x = the CRef before the move
         // y = the CRef after the move
-        if(before != cr) std::cout << "M " << before << " " << cr << std::endl;
+        if(REFUTATION_TRACING && before != cr) std::cout << "M " << before << " " << cr << std::endl;
 
         // Copy extra data-fields:
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
