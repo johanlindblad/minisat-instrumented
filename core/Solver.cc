@@ -1111,13 +1111,7 @@ CRef Solver::propagate()
                 while (i < end)
                     *j++ = *i++;
             }else{
-                /*
-                 * // Prints to the trace the fact that we propagate this literal
-                // Format will be P l x, where
-                // l = literal that is propagated
-                // x = CRef of clause it was propagated via
-                if(REFUTATION_TRACING) std::cout << "P " << first << " " << cr << endl;
-                uncheckedEnqueue(first, cr);*/
+                uncheckedEnqueue(first, cr);
             }
 
         NextClause:;
