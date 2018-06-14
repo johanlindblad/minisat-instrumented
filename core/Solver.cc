@@ -747,18 +747,28 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
     out_learnt.copyTo(analyze_toclear);
     if (ccmin_mode == 2){
         uint32_t abstract_level = 0;
+        std::vector<Lit> minimized_literals;
         for (i = 1; i < out_learnt.size(); i++)
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
 
-        for (i = j = 1; i < out_learnt.size(); i++)
-            if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
+        for (i = j = 1; i < out_learnt.size(); i++) {
+            if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level)) {
                 out_learnt[j++] = out_learnt[i];
-            else {
-                // Print to the trace the fact that we minimize away this literal
-                // Format will be MNM l, where
-                // l = the literal that will be removed
-                //std::cout << "MNM " << out_learnt[i] << endl;
+            } else {
+                minimized_literals.push_back(out_learnt[i]);
             }
+        }
+
+        if(REFUTATION_TRACING && (minimized_literals.size() > 0)) {
+            // Print to the trace the fact that we minimize away literals
+            // using mode 2
+            // Format will be MNM2 n x y, where
+            // n = the number of literals
+            // x, y = literals
+            std::cout << "MNM2 " << minimized_literals.size();
+            for(int i=0; i < minimized_literals.size(); i++) std::cout << " " << minimized_literals[i];
+            std::cout << endl;
+        }
 
     }else if (ccmin_mode == 1){
         std::vector<Lit> minimized_literals;
@@ -781,18 +791,15 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
                         minimized = false;
                         break;
                     } else if(level(var(c[k])) == 0) {
-                        // Literals at level 0 need to be removed
+                        // Literals at level 0 need to be minimized away
+                        // (minisat implicitly ignored them)
                         minimized_literals.push_back(c[k]);
                     }
                 }
 
                 if(REFUTATION_TRACING && minimized) minimized_literals.push_back(out_learnt[i]);
-                //if(minimized) std::cout << "Minimizing " << v << " using " << reason(v) << ": " << c <<  endl;
             }
         }
-
-        /*for(int i=0; i < trail.size(); i++)
-            std::cout << i << ": " << trail[i] << " at level " << level(var(trail[i])) << endl;*/
 
         if(REFUTATION_TRACING && minimized_literals.size() > 0) {
             // Print to the trace the fact that we minimize away literals
