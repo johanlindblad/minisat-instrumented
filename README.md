@@ -4,7 +4,6 @@ Run minisat as usual. Flag in beginning of `SolverTypes.h` turns tracing on or o
 (compile-time flag to allow tracing to be optimized away if not used).
 
 Not working:
-* Minimization mode 2
 * DPLL mode (not understood or verified)
 
 Working:
