@@ -25,6 +25,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <math.h>
 #include <vector>
+#include <fstream>
 #include "utils/System.h" // For the CPU time
 #include "mtl/Sort.h"
 #include "core/Solver.h"
@@ -40,6 +41,7 @@ using namespace Minisat;
 static const char* _cat = "CORE";
 
 static StringOption opt_fileout  (_cat, "fileout", "File to write the output (if empty value, it prints in stdout)", "");
+static StringOption opt_traceout  (_cat, "traceout", "File to write the trace output (if empty value, it prints in stdout)", "");
 static DoubleOption  opt_var_decay         (_cat, "var-decay",   "The variable activity decay factor",            0.95,     DoubleRange(0, false, 1, false));
 static DoubleOption  opt_clause_decay      (_cat, "cla-decay",   "The clause activity decay factor",              0.999,    DoubleRange(0, false, 1, false));
 static DoubleOption  opt_random_var_freq   (_cat, "rnd-freq",    "The frequency with which the decision heuristic tries to choose a random variable", 0, DoubleRange(0, true, 1, true));
@@ -357,11 +359,20 @@ Solver::Solver() :
   , propagation_budget (-1)
   , asynch_interrupt   (false)
   , filenameout(opt_fileout)
+  , tracenameout(opt_traceout)
 {
 	if(!strcmp(filenameout, ""))
 		fileout = stdout;
 	else
 		fileout = fopen(filenameout, "w");
+
+	if(!strcmp(tracenameout, ""))
+		traceout = &std::cout;
+	else {
+        std::fstream* file = new std::fstream();
+		file->open(tracenameout, std::fstream::out);
+        traceout = file;
+    }
  handleTheoryOptions();
 
  std::ios::sync_with_stdio(false);
@@ -652,7 +663,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         // Prints to trace the fact that we are using this clause
         // Format will be U x where
         // x = current CRef of clause
-        if(REFUTATION_TRACING) std::cout << "U " << confl << endl;
+        if(REFUTATION_TRACING) (*traceout) << "U " << confl << endl;
 
         // Just maintains stats about the clauses seen in conflict analysis
         if (!c.is_seen_analysis()) {
@@ -720,9 +731,9 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         // x, y = skipped literals
         if(REFUTATION_TRACING && skipped.size() > 0)
         {
-            std::cout << "S " << skipped.size();
-            for(Lit l : skipped) std::cout << " " << l;
-            std::cout << endl;
+            (*traceout) << "S " << skipped.size();
+            for(Lit l : skipped) (*traceout) << " " << l;
+            (*traceout) << endl;
         }
 
         // Select next clause to look at:
@@ -765,9 +776,9 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
             // Format will be MNM2 n x y, where
             // n = the number of literals
             // x, y = literals
-            std::cout << "MNM2 " << minimized_literals.size();
-            for(int i=0; i < minimized_literals.size(); i++) std::cout << " " << minimized_literals[i];
-            std::cout << endl;
+            (*traceout) << "MNM2 " << minimized_literals.size();
+            for(int i=0; i < minimized_literals.size(); i++) (*traceout) << " " << minimized_literals[i];
+            (*traceout) << endl;
         }
 
     }else if (ccmin_mode == 1){
@@ -806,9 +817,9 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
             // Format will be MNM n x y, where
             // n = the number of literals
             // x, y = literals
-            std::cout << "MNM " << minimized_literals.size();
-            for(int i=0; i < minimized_literals.size(); i++) std::cout << " " << minimized_literals[i];
-            std::cout << endl;
+            (*traceout) << "MNM " << minimized_literals.size();
+            for(int i=0; i < minimized_literals.size(); i++) (*traceout) << " " << minimized_literals[i];
+            (*traceout) << endl;
         }
     }else
         i = j = out_learnt.size();
@@ -905,7 +916,7 @@ void Solver::minimisationWithBinaryResolution(vec<Lit> &out_learnt) {
             if (permDiff[var(imp)] == MYFLAG && value(imp) == l_True) {
                 nb++;
                 permDiff[var(imp)] = MYFLAG - 1;
-                std::cout << "U " << wbin[k].cref << endl;
+                (*traceout) << "U " << wbin[k].cref << endl;
             }
         }
         int l = out_learnt.size() - 1;
@@ -1008,7 +1019,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 
 void Solver::uncheckedEnqueue(Lit p, CRef from, bool dpll)
 {
-    if(REFUTATION_TRACING && (from != CRef_Undef)) std::cout << "P " << p << " " << from << endl;
+    if(REFUTATION_TRACING && (from != CRef_Undef)) (*traceout) << "P " << p << " " << from << endl;
 
     assert(value(p) == l_Undef);
 	if(LRB){
@@ -1064,11 +1075,6 @@ CRef Solver::propagate()
 		    confl = ws_bin[k].cref;
 		    return confl;
 		}else if(value(the_other) == l_Undef) {
-            /*// Prints to the trace the fact that we propagate this literal
-            // Format will be P l x, where
-            // l = literal that is propagated
-            // x = CRef of clause it was propagated via
-            if(REFUTATION_TRACING) std::cout << "P " << the_other << " " << ws_bin[k].cref << endl;*/
             uncheckedEnqueue(the_other, ws_bin[k].cref);
 	    }
         }
@@ -1190,7 +1196,7 @@ void Solver::reduceDB()
         // Print to the trace the fact that we remove this clause
         // Format will be R x, where
         // x = CRef of removed clause
-        if(REFUTATION_TRACING) std::cout << "R " << learnts[i] << endl;
+        if(REFUTATION_TRACING) (*traceout) << "R " << learnts[i] << endl;
         removeClause(learnts[i]);
       }else{
 		  if (ca_lbd  && !c.removable())
@@ -1213,7 +1219,7 @@ void Solver::removeSatisfied(vec<CRef>& cs)
             // Print to the trace the fact that we remove this clause
             // Format will be R x, where
             // x = CRef of removed clause
-            if(REFUTATION_TRACING) std::cout << "R " << cs[i] << endl;
+            if(REFUTATION_TRACING) (*traceout) << "R " << cs[i] << endl;
             removeClause(cs[i]);
         } else
             cs[j++] = cs[i];
@@ -1400,7 +1406,7 @@ lbool Solver::search(int nof_conflicts)
                 // Print to the trace the fact that we have the final conflict
                 // Format will be C x, where
                 // x = CRef of the final conflict clause
-                if(REFUTATION_TRACING) std::cout << "C " << confl << endl;
+                if(REFUTATION_TRACING) (*traceout) << "C " << confl << endl;
                 return l_False;
             }
 
@@ -1441,7 +1447,7 @@ lbool Solver::search(int nof_conflicts)
                 // Prints to the trace the fact that we backtracked
                 // Format will be B l, where
                 // l = level that is backtracked to
-                if(REFUTATION_TRACING) std::cout << "B " << backtrack_level << endl;
+                if(REFUTATION_TRACING) (*traceout) << "B " << backtrack_level << endl;
 
                 if (CHB) chb_p = trail.size();
 
@@ -1450,7 +1456,7 @@ lbool Solver::search(int nof_conflicts)
                     // Prints to the trace the fact that we learned this unit
                     // Format will be LU l, where
                     // l = the literal that was learned
-                    if(REFUTATION_TRACING) std::cout << "LU " << learnt_clause[0] << endl;
+                    if(REFUTATION_TRACING) (*traceout) << "LU " << learnt_clause[0] << endl;
                     assert(backtrack_level == 0);
                     uncheckedEnqueue(learnt_clause[0]);
                 }else if (dpll && learnt_clause.size() > 2) { // We keep binary clauses as CDCL solver does
@@ -1461,7 +1467,7 @@ lbool Solver::search(int nof_conflicts)
                     // x = the CRef of the learned clause
                     // y = the number of literals
                     // a, b, c = literals
-                    if(REFUTATION_TRACING) std::cout << "L " << cr << " " << dpll_ca[cr] << endl;
+                    if(REFUTATION_TRACING) (*traceout) << "L " << cr << " " << dpll_ca[cr] << endl;
                     uncheckedEnqueue(learnt_clause[0], cr, true);
                 }else {
                     if (learnt_clause.size()==2) nbBin++;
@@ -1481,7 +1487,7 @@ lbool Solver::search(int nof_conflicts)
                     // x = the CRef of the learned clause
                     // y = the number of literals
                     // a, b, c = literals
-                    if(REFUTATION_TRACING) std::cout << "L " << cr << " " << ca[cr] << endl;
+                    if(REFUTATION_TRACING) (*traceout) << "L " << cr << " " << ca[cr] << endl;
                     uncheckedEnqueue(learnt_clause[0], cr);
                 }
 
@@ -1492,7 +1498,7 @@ lbool Solver::search(int nof_conflicts)
                     // this via the newly learned unit
                     // Format will be PU l, where
                     // l = unit that is propagated
-                    if(REFUTATION_TRACING) std::cout << "PU " << learnt_clause[0] << endl;
+                    if(REFUTATION_TRACING) (*traceout) << "PU " << learnt_clause[0] << endl;
                 }
             }
 
@@ -1613,7 +1619,7 @@ lbool Solver::search(int nof_conflicts)
             // Prints to the trace the fact that we made a decision
             // Format will be D l, where
             // l = the literal that is decided
-            if(REFUTATION_TRACING) std::cout << "D " << next << endl;
+            if(REFUTATION_TRACING) (*traceout) << "D " << next << endl;
 
             if (opt_disable_learning) visited_levels.push(decisionLevel());
         }
@@ -1712,7 +1718,7 @@ lbool Solver::solve_()
     // Trace the number of vars
     // Format will be NV n, where
     // n = the number of vars
-    if(REFUTATION_TRACING) std::cout << "NV " << nVars() << endl;
+    if(REFUTATION_TRACING) (*traceout) << "NV " << nVars() << endl;
 
     // Trace all initial clauses
     // Format is I x y a b c, where
@@ -1721,7 +1727,7 @@ lbool Solver::solve_()
     // a, b, c = literals
     if(REFUTATION_TRACING) {
         for(int i=0; i < clauses.size(); i++) {
-            std::cout << "I " << clauses[i] << " " << ca[clauses[i]] << endl;
+            (*traceout) << "I " << clauses[i] << " " << ca[clauses[i]] << endl;
         }
     }
 
@@ -1736,7 +1742,7 @@ lbool Solver::solve_()
         if (asynch_interrupt) break;
         curr_restarts++;
         // Print to the trace the fact that we restarted
-        if(REFUTATION_TRACING) std::cout << "RS" << endl;
+        if(REFUTATION_TRACING) (*traceout) << "RS" << endl;
     }
 
     if (json)
@@ -1851,7 +1857,7 @@ void Solver::relocAll(ClauseAllocator& to)
             // printf(" >>> RELOCING: %s%d\n", sign(p)?"-":"", var(p)+1);
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++)
-                ca.reloc(ws[j].cref, to);
+                ca.reloc(ws[j].cref, to, traceout);
 	    if (opt_binary) {
 		vec<Watcher>& ws_bin = watchesBin[p];
 		for (int j = 0; j < ws_bin.size(); j++)
@@ -1879,7 +1885,7 @@ void Solver::relocAll(ClauseAllocator& to)
         ca.reloc(clauses[i], to);
 
     // Print to the trace the fact that relocation is complete
-    if(REFUTATION_TRACING) std::cout << "RD" << endl;
+    if(REFUTATION_TRACING) (*traceout) << "RD" << endl;
 }
 
 

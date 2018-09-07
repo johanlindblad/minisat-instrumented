@@ -191,6 +191,8 @@ public:
 
 	const char* filenameout; // Prints the output
 	FILE* fileout;
+	const char* tracenameout; // Prints the trace output
+    std::ostream* traceout;
 
 protected:
 

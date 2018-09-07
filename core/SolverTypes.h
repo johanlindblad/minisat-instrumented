@@ -236,7 +236,7 @@ public:
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Clause& c) {
-    std::cout << c.size() << " ";
+    os << c.size() << " ";
 
     for (int j = 0; j < c.size(); j++) {
         os << c[j] << " ";
@@ -290,21 +290,26 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra()));
     }
 
-    void reloc(CRef& cr, ClauseAllocator& to)
+    void reloc(CRef& cr, ClauseAllocator& to, std::ostream* traceout)
     {
         CRef before = cr;
+        reloc(cr, to);
+
+        // Print to the trace the fact that we reloced this clause
+        // Format will be M x y, where
+        // x = the CRef before the move
+        // y = the CRef after the move
+        if(REFUTATION_TRACING && before != cr) (*traceout) << "M " << before << " " << cr << std::endl;
+    }
+
+    void reloc(CRef& cr, ClauseAllocator& to)
+    {
         Clause& c = operator[](cr);
 
         if (c.reloced()) { cr = c.relocation(); return; }
 
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
-
-        // Print to the trace the fact that we reloced this clause
-        // Format will be M x y, where
-        // x = the CRef before the move
-        // y = the CRef after the move
-        if(REFUTATION_TRACING && before != cr) std::cout << "M " << before << " " << cr << std::endl;
 
         // Copy extra data-fields:
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
