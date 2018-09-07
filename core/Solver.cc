@@ -1461,7 +1461,7 @@ lbool Solver::search(int nof_conflicts)
                     // x = the CRef of the learned clause
                     // y = the number of literals
                     // a, b, c = literals
-                    if(REFUTATION_TRACING) std::cout << "L " << cr << " " << ca[cr] << endl;
+                    if(REFUTATION_TRACING) std::cout << "L " << cr << " " << dpll_ca[cr] << endl;
                     uncheckedEnqueue(learnt_clause[0], cr, true);
                 }else {
                     if (learnt_clause.size()==2) nbBin++;
