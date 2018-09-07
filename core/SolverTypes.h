@@ -293,13 +293,35 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     void reloc(CRef& cr, ClauseAllocator& to, std::ostream* traceout)
     {
         CRef before = cr;
-        reloc(cr, to);
+        Clause& c = operator[](cr);
+
+
+        if (c.reloced()) { cr = c.relocation(); return; }
+
+        cr = to.alloc(c, c.learnt());
+        c.relocate(cr);
 
         // Print to the trace the fact that we reloced this clause
         // Format will be M x y, where
         // x = the CRef before the move
         // y = the CRef after the move
         if(REFUTATION_TRACING && before != cr) (*traceout) << "M " << before << " " << cr << std::endl;
+
+        // Copy extra data-fields:
+        // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
+        to[cr].mark(c.mark());
+        /* to[cr].setCounter(c.counter()); */
+        /* to[cr].sat_lit(c.sat_lit()); */
+        to[cr].set_dpll(c.is_dpll());
+        to[cr].set_seen_analysis(c.is_seen_analysis());
+
+        if (to[cr].learnt()){
+             to[cr].activity() = c.activity();
+             to[cr].set_lbd(c.lbd());
+             to[cr].removable(c.removable());
+         }
+
+        else if (to[cr].has_extra()) to[cr].calcAbstraction();
     }
 
     void reloc(CRef& cr, ClauseAllocator& to)

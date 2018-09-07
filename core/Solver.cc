@@ -1759,6 +1759,8 @@ lbool Solver::solve_()
     }else if (status == l_False && conflict.size() == 0)
         ok = false;
 
+    traceout->flush();
+
   	cancelUntil(0);
     return status;
 }
@@ -1861,7 +1863,7 @@ void Solver::relocAll(ClauseAllocator& to)
 	    if (opt_binary) {
 		vec<Watcher>& ws_bin = watchesBin[p];
 		for (int j = 0; j < ws_bin.size(); j++)
-		    ca.reloc(ws_bin[j].cref, to);
+		    ca.reloc(ws_bin[j].cref, to, traceout);
 	    }
         }
 
@@ -1871,18 +1873,18 @@ void Solver::relocAll(ClauseAllocator& to)
         Var v = var(trail[i]);
 
         if (reason(v) != CRef_Undef && !tmpReason(v) && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
-            ca.reloc(vardata[v].reason, to);
+            ca.reloc(vardata[v].reason, to, traceout);
     }
 
     // All learnt:
     //
     for (int i = 0; i < learnts.size(); i++)
-        ca.reloc(learnts[i], to);
+        ca.reloc(learnts[i], to, traceout);
 
     // All original:
     //
     for (int i = 0; i < clauses.size(); i++)
-        ca.reloc(clauses[i], to);
+        ca.reloc(clauses[i], to, traceout);
 
     // Print to the trace the fact that relocation is complete
     if(REFUTATION_TRACING) (*traceout) << "RD" << endl;
