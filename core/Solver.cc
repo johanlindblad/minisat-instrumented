@@ -1321,7 +1321,7 @@ void Solver::jsonReport(){
     fprintf(fileout,"\"unaryLearnts\":%d, ", (int)nbUn);
     fprintf(fileout,"\"unaryFound\":%d, ", trail_lim.size() == 0 ? trail.size() : trail_lim[0]);
     fprintf(fileout,"\"binaryLearnts\":%d, ", (int)nbBin);
-    fprintf(fileout,"\"maxLearnts\":%d ", (int)max_learnts);
+    fprintf(fileout,"\"maxLearnts\":%d,", (int)max_learnts);
     fprintf(fileout,"\"nbRemovedClauses\":%d, ", (int)nbRemovedClauses);
     fprintf(fileout,"\"nbOriginalSeenInConflicts\":%d, ", (int)nbOriginalSeenInConflicts);
     fprintf(fileout,"\"nbLearntSeenInConflicts\":%d, ", (int)nbLearntSeenInConflicts);
