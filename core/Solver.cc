@@ -663,7 +663,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         // Prints to trace the fact that we are using this clause
         // Format will be U x where
         // x = current CRef of clause
-        if(REFUTATION_TRACING) (*traceout) << "U " << confl << endl;
+        if(REFUTATION_TRACING) {
+            if(dpll && p!=lit_Undef && tmpReason(var(p))) {
+                (*traceout) << "U -" << (1 + confl) << endl;
+            } else {
+                (*traceout) << "U " << confl << endl;
+            }
+        }
 
         // Just maintains stats about the clauses seen in conflict analysis
         if (!c.is_seen_analysis()) {
@@ -1019,7 +1025,11 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 
 void Solver::uncheckedEnqueue(Lit p, CRef from, bool dpll)
 {
-    if(REFUTATION_TRACING && (from != CRef_Undef)) (*traceout) << "P " << p << " " << from << endl;
+    if(REFUTATION_TRACING && (from != CRef_Undef))
+    {
+            if(dpll) (*traceout) << "P " << p << " -" << (1 + from) << endl;
+            else (*traceout) << "P " << p << " " << from << endl;
+    }
 
     assert(value(p) == l_Undef);
 	if(LRB){
@@ -1467,7 +1477,7 @@ lbool Solver::search(int nof_conflicts)
                     // x = the CRef of the learned clause
                     // y = the number of literals
                     // a, b, c = literals
-                    if(REFUTATION_TRACING) (*traceout) << "L " << cr << " " << dpll_ca[cr] << endl;
+                    if(REFUTATION_TRACING) (*traceout) << "L -" << (1 + cr) << " " << dpll_ca[cr] << endl;
                     uncheckedEnqueue(learnt_clause[0], cr, true);
                 }else {
                     if (learnt_clause.size()==2) nbBin++;
